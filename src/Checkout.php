@@ -1,0 +1,113 @@
+<?php
+
+namespace App;
+
+use Exception;
+
+class Checkout
+{
+    private $fileProduk;
+    private $filePesanan;
+
+    public function __construct($fileProduk, $filePesanan)
+    {
+        $this->fileProduk = $fileProduk;
+        $this->filePesanan = $filePesanan;
+    }
+
+    public function prosesCheckout(
+        $emailPelanggan,
+        $alamat,
+        $keranjang
+    ) {
+
+        if (empty($keranjang)) {
+            throw new Exception("Keranjang kosong.");
+        }
+
+        if (empty($alamat)) {
+            throw new Exception("Alamat wajib diisi.");
+        }
+
+        $products = json_decode(
+            file_get_contents($this->fileProduk),
+            true
+        );
+
+        $totalHargaBarang = 0;
+
+        foreach ($keranjang as $kodeProduk => $qty) {
+
+            if ($qty <= 0) {
+                throw new Exception("Qty tidak valid.");
+            }
+
+            if (!isset($products[$kodeProduk])) {
+                throw new Exception("Produk tidak ditemukan.");
+            }
+
+            if ($products[$kodeProduk]['stok'] < $qty) {
+                throw new Exception(
+                    "Stok tidak cukup."
+                );
+            }
+
+            $totalHargaBarang +=
+                $products[$kodeProduk]['harga'] * $qty;
+
+            $products[$kodeProduk]['stok'] -= $qty;
+        }
+
+        $ongkir = 20000;
+        $diskon = 0;
+
+        if ($totalHargaBarang > 500000) {
+
+            $ongkir = 0;
+
+            if ($totalHargaBarang > 1000000) {
+
+                $diskon = $totalHargaBarang * 0.10;
+            }
+        }
+
+        $totalBayar =
+            ($totalHargaBarang - $diskon) + $ongkir;
+
+        $pesananBaru = [
+
+            'id_pesanan' => uniqid('ORD-'),
+
+            'email' => $emailPelanggan,
+
+            'alamat' => htmlspecialchars($alamat),
+
+            'items' => $keranjang,
+
+            'total_bayar' => $totalBayar,
+
+            'status' => 'Menunggu Pembayaran',
+
+            'tanggal' => date('Y-m-d H:i:s')
+        ];
+
+        file_put_contents(
+            $this->fileProduk,
+            json_encode($products, JSON_PRETTY_PRINT)
+        );
+
+        $orders = json_decode(
+            file_get_contents($this->filePesanan),
+            true
+        ) ?? [];
+
+        $orders[] = $pesananBaru;
+
+        file_put_contents(
+            $this->filePesanan,
+            json_encode($orders, JSON_PRETTY_PRINT)
+        );
+
+        return $pesananBaru;
+    }
+}
