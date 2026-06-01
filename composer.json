@@ -1,7 +1,7 @@
 {
     "name": "nama-vendor/toko-online-pjbl",
     "require-dev": {
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^13.0"
     },
     "autoload": {
         "psr-4": {
